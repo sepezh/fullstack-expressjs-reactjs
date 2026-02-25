@@ -5,27 +5,14 @@ import { assembleUserState } from "./utility";
 
 const authenticationTokens = [];
 
-async function assembleUserState(user) {
-  let db = await connectDB();
-
-  let tasks = await db.collection(`tasks`).find({ owner: user.id }).toArray();
-
-  let groups = await db.collection(`groups`).find({ owner: user.id }).toArray();
-
-  return {
-    tasks,
-    groups,
-    session: { authenticated: `AUTHENTICATED`, id: user.id },
-  };
-}
-
 export const authenticationRoute = (app) => {
   app.post("/authenticate", async (request, response) => {
     let { username, password } = request.body;
     let db = await connectDB();
     let collection = db.collection(`users`);
 
-    let user = await collection.findOne({ name: username });
+    // 🔥 مهم: جستجو بر اساس id، نه name
+    let user = await collection.findOne({ id: username });
 
     if (!user) {
       return response.status(500).send("User not found");
@@ -38,7 +25,7 @@ export const authenticationRoute = (app) => {
       return response.status(500).send("Password incorrect");
     }
 
-    let token = uuid();
+    let token = uuid.v4();
 
     authenticationTokens.push({
       token,
@@ -52,19 +39,18 @@ export const authenticationRoute = (app) => {
 
   app.post("/user/create", async (request, response) => {
     let { username, password } = request.body;
-    console.log(username, password);
     let db = await connectDB();
     let collection = db.collection(`users`);
+
     let user = await collection.findOne({ name: username });
     if (user) {
-      response
+      return response
         .status(500)
         .send({ message: "A user with that account name already exists." });
-      return;
     }
 
-    let userID = uuid();
-    let groupID = uuid();
+    let userID = uuid.v4();
+    let groupID = uuid.v4();
 
     await collection.insertOne({
       name: username,
@@ -80,6 +66,6 @@ export const authenticationRoute = (app) => {
 
     let state = await assembleUserState({ id: userID, name: username });
 
-    res.status(200).send({ userID, state });
+    response.status(200).send({ userID, state });
   });
 };
